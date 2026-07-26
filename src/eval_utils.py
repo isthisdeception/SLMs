@@ -1,5 +1,6 @@
 """
 Evaluation utilities for CoT reasoning metrics, answer extraction, GSM8K, and ARC benchmarks.
+Optimized for ultra-fast execution on Kaggle Dual T4 GPUs.
 """
 
 import re
@@ -15,9 +16,7 @@ from src.prompts import format_cot_prompt, format_gsm8k_prompt, format_arc_promp
 
 
 def extract_thinking(response_text: str) -> str:
-    """
-    Extracts the intermediate reasoning trace (<think>...</think>) from a model response.
-    """
+    """Extracts intermediate reasoning trace (<think>...</think>) from response."""
     if "<think>" in response_text and "</think>" in response_text:
         match = re.search(r"<think>(.*?)</think>", response_text, re.DOTALL)
         if match:
@@ -26,24 +25,18 @@ def extract_thinking(response_text: str) -> str:
 
 
 def extract_final_answer(response_text: str) -> str:
-    """
-    Extracts the final answer from a model response (boxed, pattern matching, or last line).
-    """
-    # Clean output by removing reasoning block if present
+    """Extracts final answer from model response."""
     if "</think>" in response_text:
         response_text = response_text.split("</think>")[-1].strip()
 
-    # Case 1: \\boxed{answer} format
     boxed_match = re.search(r"\\boxed\{([^}]+)\}", response_text)
     if boxed_match:
         return boxed_match.group(1).strip()
 
-    # Case 2: "The final answer is [X]" or "The answer is [X]"
     pattern_match = re.search(r"final answer is[:\s]*([^\.\n]+)", response_text, re.IGNORECASE)
     if pattern_match:
         return pattern_match.group(1).strip()
 
-    # Case 3: Fallback to last non-empty line
     lines = [l.strip() for l in response_text.split("\n") if l.strip()]
     if lines:
         return lines[-1]
@@ -51,9 +44,7 @@ def extract_final_answer(response_text: str) -> str:
 
 
 def compute_exact_match(predictions: List[str], references: List[str]) -> float:
-    """
-    Computes Exact Match (EM) accuracy between normalized prediction strings and reference answers.
-    """
+    """Computes Exact Match (EM) accuracy score."""
     matches = 0
     for pred, ref in zip(predictions, references):
         norm_pred = re.sub(r"[^\w\s]", "", pred.lower()).strip()
@@ -64,9 +55,7 @@ def compute_exact_match(predictions: List[str], references: List[str]) -> float:
 
 
 def compute_rouge_l(predictions: List[str], references: List[str]) -> float:
-    """
-    Computes average ROUGE-L F1 score for generated text against reference text.
-    """
+    """Computes average ROUGE-L F1 score."""
     scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
     scores = []
     for pred, ref in zip(predictions, references):
@@ -81,34 +70,58 @@ def batch_generate(
     model: Any,
     tokenizer: Any,
     prompts: List[str],
-    max_new_tokens: int = 512,
+    batch_size: int = 16,
+    max_new_tokens: int = 256,
     temperature: float = 0.0
 ) -> List[str]:
     """
-    Generates model responses for a list of input prompts using greedy decoding.
+    Ultra-fast batched generation using Unsloth native inference optimization.
     """
     try:
         from unsloth import FastLanguageModel
         FastLanguageModel.for_inference(model)
-    except ImportError:
+    except Exception:
         model.eval()
+
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
 
     responses = []
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    for prompt in tqdm(prompts, desc="Generating responses"):
-        inputs = tokenizer([prompt], return_tensors="pt").to(device)
+    total_batches = (len(prompts) + batch_size - 1) // batch_size
+    print(f"Generating responses for {len(prompts)} items in {total_batches} GPU batches (batch_size={batch_size})...")
+
+    for i in range(0, len(prompts), batch_size):
+        batch_prompts = prompts[i:i + batch_size]
+        inputs = tokenizer(
+            batch_prompts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=1024
+        ).to(device)
+        
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
-                temperature=temperature if temperature > 0 else 1e-5,
-                do_sample=temperature > 0,
-                pad_token_id=tokenizer.eos_token_id
+                temperature=1e-5,
+                do_sample=False,
+                pad_token_id=tokenizer.pad_token_id,
+                eos_token_id=tokenizer.eos_token_id,
+                use_cache=True
             )
-        generated_ids = outputs[0][inputs.input_ids.shape[1]:]
-        response = tokenizer.decode(generated_ids, skip_special_tokens=True)
-        responses.append(response)
+            
+        for idx, output in enumerate(outputs):
+            input_len = inputs.input_ids[idx].shape[0]
+            generated_ids = output[input_len:]
+            response = tokenizer.decode(generated_ids, skip_special_tokens=True)
+            responses.append(response)
+
+        current_count = min(i + batch_size, len(prompts))
+        print(f"  --> Processed {current_count}/{len(prompts)} prompts...")
 
     return responses
 
@@ -117,13 +130,11 @@ def evaluate_cot_testset(
     model: Any,
     tokenizer: Any,
     test_jsonl_path: str,
-    n_samples: int = 200,
+    n_samples: int = 100,
     model_type: str = "qwen"
 ) -> Dict[str, Any]:
-    """
-    Evaluates model on held-out CoT test set for EM and ROUGE-L metrics.
-    """
-    print(f"Evaluating CoT Test Set ({n_samples} samples)...")
+    """Evaluates model on held-out CoT test set."""
+    print(f"\n[1/3] Evaluating CoT Test Set ({n_samples} samples)...")
     if not os.path.exists(test_jsonl_path):
         print(f"Warning: Test file {test_jsonl_path} not found.")
         return {"exact_match": 0.0, "rouge_l": 0.0, "samples": []}
@@ -141,7 +152,6 @@ def evaluate_cot_testset(
 
     for s in samples:
         text = s["text"]
-        # Split text into prompt (up to assistant header) and reference target
         if "<|im_start|>assistant" in text:
             parts = text.split("<|im_start|>assistant\n")
             prompt = parts[0] + "<|im_start|>assistant\n"
@@ -154,13 +164,13 @@ def evaluate_cot_testset(
         references.append(ref)
         ref_answers.append(extract_final_answer(ref))
 
-    responses = batch_generate(model, tokenizer, prompts, max_new_tokens=512, temperature=0.0)
+    responses = batch_generate(model, tokenizer, prompts, batch_size=16, max_new_tokens=256)
     pred_answers = [extract_final_answer(r) for r in responses]
 
     em = compute_exact_match(pred_answers, ref_answers)
     rouge_l = compute_rouge_l(responses, references)
 
-    print(f"CoT Test Set Results -> EM: {em}%, ROUGE-L: {rouge_l}%")
+    print(f"✅ CoT Test Set Results -> EM: {em}%, ROUGE-L: {rouge_l}%")
 
     qualitative_samples = []
     for i in range(min(5, len(prompts))):
@@ -183,12 +193,10 @@ def evaluate_cot_testset(
 def evaluate_gsm8k(
     model: Any,
     tokenizer: Any,
-    n_samples: int = 200
+    n_samples: int = 100
 ) -> Dict[str, Any]:
-    """
-    Evaluates zero-shot math reasoning on GSM8K benchmark.
-    """
-    print(f"Evaluating GSM8K ({n_samples} samples)...")
+    """Evaluates zero-shot math reasoning on GSM8K benchmark."""
+    print(f"\n[2/3] Evaluating GSM8K ({n_samples} samples)...")
     ds = load_dataset("openai/gsm8k", "main", split="test")
     if n_samples < len(ds):
         ds = ds.select(range(n_samples))
@@ -196,11 +204,11 @@ def evaluate_gsm8k(
     prompts = [format_gsm8k_prompt(item["question"]) for item in ds]
     ref_answers = [item["answer"].split("####")[-1].strip() for item in ds]
 
-    responses = batch_generate(model, tokenizer, prompts, max_new_tokens=512, temperature=0.0)
+    responses = batch_generate(model, tokenizer, prompts, batch_size=16, max_new_tokens=256)
     pred_answers = [extract_final_answer(r) for r in responses]
 
     acc = compute_exact_match(pred_answers, ref_answers)
-    print(f"GSM8K Accuracy: {acc}%")
+    print(f"✅ GSM8K Accuracy: {acc}%")
 
     return {
         "gsm8k_accuracy": acc,
@@ -211,12 +219,10 @@ def evaluate_gsm8k(
 def evaluate_arc_challenge(
     model: Any,
     tokenizer: Any,
-    n_samples: int = 200
+    n_samples: int = 100
 ) -> Dict[str, Any]:
-    """
-    Evaluates zero-shot science reasoning on ARC-Challenge benchmark.
-    """
-    print(f"Evaluating ARC-Challenge ({n_samples} samples)...")
+    """Evaluates zero-shot science reasoning on ARC-Challenge benchmark."""
+    print(f"\n[3/3] Evaluating ARC-Challenge ({n_samples} samples)...")
     ds = load_dataset("allenai/ai2_arc", "ARC-Challenge", split="test")
     if n_samples < len(ds):
         ds = ds.select(range(n_samples))
@@ -224,11 +230,11 @@ def evaluate_arc_challenge(
     prompts = [format_arc_prompt(item["question"], item["choices"]) for item in ds]
     ref_answers = [item["answerKey"] for item in ds]
 
-    responses = batch_generate(model, tokenizer, prompts, max_new_tokens=256, temperature=0.0)
+    responses = batch_generate(model, tokenizer, prompts, batch_size=16, max_new_tokens=128)
     pred_answers = [extract_final_answer(r) for r in responses]
 
     acc = compute_exact_match(pred_answers, ref_answers)
-    print(f"ARC-Challenge Accuracy: {acc}%")
+    print(f"✅ ARC-Challenge Accuracy: {acc}%")
 
     return {
         "arc_accuracy": acc,
@@ -237,9 +243,7 @@ def evaluate_arc_challenge(
 
 
 def save_results(results: Dict[str, Any], filepath: str) -> None:
-    """
-    Saves evaluation benchmark results dictionary into structured JSON.
-    """
+    """Saves benchmark results into structured JSON."""
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "w") as f:
         json.dump(results, f, indent=2)

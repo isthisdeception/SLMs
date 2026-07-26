@@ -61,9 +61,9 @@ training:
   early_stopping_patience: 3
 
 evaluation:
-  gsm8k_samples: 200
-  arc_samples: 200
-  cot_test_samples: 500
+  gsm8k_samples: 100
+  arc_samples: 100
+  cot_test_samples: 100
   temperature: 0.0
-  max_new_tokens: 512
+  max_new_tokens: 256
   results_dir: "results"

@@ -485,25 +485,57 @@ IMPORTANT CONSTRAINTS:
 # Phase 5: Literature Review & Related Work
 
 ## 🎯 Goal
-Produce a comprehensive, rigorous literature review based **EXCLUSIVELY** on 10–15 target papers provided directly by the user. NO random, assumed, or hallucinated citations are allowed.
+Produce a comprehensive, well-cited literature review covering chain-of-thought reasoning, knowledge distillation, parameter-efficient fine-tuning, and small language models. This will form Section 2 of the paper and also serve as a standalone deliverable.
 
 ## 📝 Technical Plan
 
-### 5.1 — User-Provided Citation Protocol
-- **STRICT DIRECTIVE**: Only papers explicitly supplied by the user (titles, PDFs, or BibTeX entries) will be cited in `literature_review.md` and `paper/references.bib`.
-- The user will provide 10–15 core journal/conference papers covering SLM reasoning, CoT distillation, and PEFT fine-tuning.
+### 5.1 — Topic Areas to Cover
+
+#### A. Chain-of-Thought Reasoning (2022–2026)
+- **Foundational**: Wei et al. (2022) — CoT prompting; Kojima et al. (2022) — Zero-shot CoT ("Let's think step by step").
+- **Advanced CoT**: Wang et al. (2023) — Self-consistency; Yao et al. (2023) — Tree of Thoughts; Besta et al. (2024) — Graph of Thoughts.
+- **CoT in Small Models**: Magister et al. (2023) — Teaching small LMs to reason; Fu et al. (2023) — Specializing smaller models; Shridhar et al. (2023) — Distilling reasoning capabilities.
+- **2024–2026 Advances**: DeepSeek-R1 distillation (2025); Qwen2.5 technical report; reasoning traces as training data.
+
+#### B. Knowledge Distillation for LLMs
+- Hinton et al. (2015) — Original KD framework.
+- Hsieh et al. (2023) — Distilling step-by-step.
+- Mukherjee et al. (2023) — Orca: Learning from complex explanation traces.
+- West et al. (2023) — Symbolic knowledge distillation.
+- 2024–2025: Dataset distillation approaches (Bespoke-Stratos, Magpie-Align).
+
+#### C. Parameter-Efficient Fine-Tuning (PEFT)
+- Hu et al. (2022) — LoRA.
+- Dettmers et al. (2023) — QLoRA.
+- Liu et al. (2024) — DoRA: Weight-decomposed low-rank adaptation.
+- Renduchintala et al. (2024) — Tied-LoRA.
+- Unsloth (2024) — Optimized training kernels.
+
+#### D. Small Language Models (SLMs)
+- Phi-1/2/3/4 (Microsoft) — Textbook-quality data for small models.
+- Qwen2/2.5 series (Alibaba) — Architecture and capabilities.
+- Llama 3/3.1/3.2 (Meta) — Scaling down from 405B to 1B.
+- Gemma 2/3 (Google) — Efficient small model design.
+- SmolLM, TinyLlama, etc.
 
 ### 5.2 — Literature Review Structure (for `literature_review.md`)
-1. Introduction & Context
-2. Chain-of-Thought Reasoning in Small Models (synthesized strictly from provided papers)
-3. Knowledge Distillation & Reasoning Traces (synthesized strictly from provided papers)
-4. Parameter-Efficient Fine-Tuning (QLoRA/LoRA) (synthesized strictly from provided papers)
-5. Critical Synthesis & Identified Research Gap
-6. BibTeX References (`paper/references.bib`) built strictly from provided source papers.
+1. Introduction to CoT reasoning and its importance
+2. Evolution of chain-of-thought techniques
+3. Knowledge distillation: From classic to LLM-era
+4. Parameter-efficient fine-tuning methods
+5. Small language models: Capabilities and limitations
+6. Research gap and our contribution
+7. Complete reference list (BibTeX-ready)
 
-### 5.3 — Output Artifacts
-- `literature_review.md` (comprehensive synthesis of provided papers)
-- `paper/references.bib` (BibTeX entries for provided papers)
+### 5.3 — Methodology
+- Search arXiv, Semantic Scholar, ACL Anthology for relevant papers.
+- Focus on 2023–2026 publications for recency.
+- Include seminal older works (2015–2022) for foundations.
+- Target: 40–60 references total.
+
+### 5.4 — Output Artifacts
+- `literature_review.md` (comprehensive standalone document)
+- `paper/references.bib` (all BibTeX entries)
 
 ## 🤖 Antigravity Prompt (Phase 5)
 

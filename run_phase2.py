@@ -1,7 +1,6 @@
 import os
 import sys
 import yaml
-import json
 
 # Ensure project root is in python path
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -32,7 +31,7 @@ def main():
     initial_memory = get_memory_stats()
     print(f"Base Model Memory Profile: {initial_memory}")
 
-    # 3. Evaluate on CoT held-out test set
+    # 3. Evaluate on CoT held-out test set (100 samples)
     test_jsonl_path = os.path.join(PROJECT_ROOT, config['data']['test_file'])
     cot_results = evaluate_cot_testset(
         model=model,
@@ -42,14 +41,14 @@ def main():
         model_type=config['model']['model_type']
     )
 
-    # 4. Evaluate on GSM8K benchmark
+    # 4. Evaluate on GSM8K benchmark (100 samples)
     gsm8k_results = evaluate_gsm8k(
         model=model,
         tokenizer=tokenizer,
         n_samples=config['evaluation']['gsm8k_samples']
     )
 
-    # 5. Evaluate on ARC-Challenge benchmark
+    # 5. Evaluate on ARC-Challenge benchmark (100 samples)
     arc_results = evaluate_arc_challenge(
         model=model,
         tokenizer=tokenizer,
