@@ -1,18 +1,15 @@
-"""
-Execution script for Phase 3: QLoRA fine-tuning on CoT reasoning dataset.
-"""
-
 import os
 import sys
+
+# Ensure current directory and script directory are in sys.path BEFORE importing from src
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
 import yaml
 import json
 import torch
 from datasets import Dataset
-
-# Ensure project root is in python path
-PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
 
 from src.data_utils import setup_environment
 from src.model_utils import load_base_model, apply_qlora, get_memory_stats, clear_gpu_memory
@@ -28,7 +25,7 @@ def main():
     print("=== Executing Phase 3: QLoRA Fine-Tuning for CoT Reasoning ===")
 
     # 1. Load project configuration
-    config_path = os.path.join(PROJECT_ROOT, "configs", "qlora_config.yaml")
+    config_path = os.path.join(current_dir, "configs", "qlora_config.yaml")
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
@@ -51,8 +48,8 @@ def main():
     )
 
     # 4. Load Processed Dataset Splits from Phase 1
-    train_file = os.path.join(PROJECT_ROOT, config['data']['train_file'])
-    test_file = os.path.join(PROJECT_ROOT, config['data']['test_file'])
+    train_file = os.path.join(current_dir, config['data']['train_file'])
+    test_file = os.path.join(current_dir, config['data']['test_file'])
 
     if not os.path.exists(train_file):
         raise FileNotFoundError(f"Training dataset '{train_file}' not found. Please run Phase 1 first.")
@@ -63,7 +60,7 @@ def main():
     print(f"Loaded Train Samples: {len(train_dataset)}, Test Samples: {len(test_dataset)}")
 
     # 5. Set up Training Arguments & Callbacks
-    output_model_dir = os.path.join(PROJECT_ROOT, config['training']['output_dir'])
+    output_model_dir = os.path.join(current_dir, config['training']['output_dir'])
     training_args = get_training_args(
         output_dir=output_model_dir,
         num_epochs=config['training']['num_train_epochs'],
@@ -98,7 +95,7 @@ def main():
     print(f"LoRA adapters successfully saved to '{output_model_dir}'!")
 
     # Save training loss logs and VRAM usage
-    results_dir = os.path.join(PROJECT_ROOT, config['evaluation']['results_dir'])
+    results_dir = os.path.join(current_dir, config['evaluation']['results_dir'])
     os.makedirs(results_dir, exist_ok=True)
     logs_filepath = os.path.join(results_dir, "training_logs.json")
 
@@ -115,7 +112,7 @@ def main():
 
     print(f"Saved training log traces to '{logs_filepath}'.")
     print(f"Peak VRAM Allocated: {log_data['peak_vram_gb']} GB")
-    print("=== Phase 2 & 3 Setup Completed ===")
+    print("=== Phase 3 Completed Successfully ===")
 
     clear_gpu_memory()
 

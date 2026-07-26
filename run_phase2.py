@@ -1,12 +1,12 @@
 import os
 import sys
+
+# Ensure current directory and script directory are in sys.path BEFORE importing from src
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
 import yaml
-
-# Ensure project root is in python path
-PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
 from src.data_utils import setup_environment
 from src.model_utils import load_base_model, get_memory_stats, clear_gpu_memory
 from src.eval_utils import evaluate_cot_testset, evaluate_gsm8k, evaluate_arc_challenge, save_results
@@ -15,7 +15,7 @@ def main():
     print("=== Executing Phase 2: Model Setup & Baseline Evaluation ===")
     
     # 1. Load config
-    config_path = os.path.join(PROJECT_ROOT, "configs", "qlora_config.yaml")
+    config_path = os.path.join(current_dir, "configs", "qlora_config.yaml")
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
         
@@ -32,7 +32,7 @@ def main():
     print(f"Base Model Memory Profile: {initial_memory}")
 
     # 3. Evaluate on CoT held-out test set (100 samples)
-    test_jsonl_path = os.path.join(PROJECT_ROOT, config['data']['test_file'])
+    test_jsonl_path = os.path.join(current_dir, config['data']['test_file'])
     cot_results = evaluate_cot_testset(
         model=model,
         tokenizer=tokenizer,
@@ -67,7 +67,7 @@ def main():
     }
 
     # 7. Save results
-    results_filepath = os.path.join(PROJECT_ROOT, config['evaluation']['results_dir'], "baseline_results.json")
+    results_filepath = os.path.join(current_dir, config['evaluation']['results_dir'], "baseline_results.json")
     save_results(baseline_summary, results_filepath)
 
     print("\n==========================================")

@@ -1,12 +1,12 @@
 import os
 import sys
+
+# Ensure current directory and script directory are in sys.path BEFORE importing from src
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
 import yaml
-
-# Ensure project root is in python path
-PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
 from src.data_utils import (
     setup_environment,
     load_and_filter_dataset,
@@ -19,7 +19,7 @@ def main():
     print("=== Executing Phase 1: Environment Setup & Dataset Preparation ===")
     
     # Load config
-    config_path = os.path.join(PROJECT_ROOT, "configs", "qlora_config.yaml")
+    config_path = os.path.join(current_dir, "configs", "qlora_config.yaml")
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
     print("Configuration loaded successfully.")
@@ -49,7 +49,7 @@ def main():
     print("...\n")
 
     # Save
-    data_dir = os.path.join(PROJECT_ROOT, "data")
+    data_dir = os.path.join(current_dir, "data")
     save_splits(train_ds, test_ds, output_dir=data_dir)
     print("=== Phase 1 Completed Successfully ===")
 
