@@ -1,7 +1,7 @@
 import os
 import sys
 
-# Ensure current working directory, script directory, and Kaggle path are in sys.path
+# Ensure current script directory and project paths are in sys.path BEFORE importing from src
 script_dir = os.path.dirname(os.path.abspath(__file__))
 cwd = os.getcwd()
 kaggle_path = "/kaggle/working/SLMs"
@@ -35,14 +35,14 @@ def main():
 
     setup_environment(seed=config['project']['seed'])
 
-    # 2. Load Base Model & Tokenizer
+    # 2. Load Base Model & Tokenizer using Unsloth 4-bit
     model, tokenizer = load_base_model(
         model_name=config['model']['base_model_name'],
         max_seq_length=config['model']['max_seq_length'],
         load_in_4bit=config['model']['load_in_4bit']
     )
 
-    # 3. Apply QLoRA PEFT Adapters
+    # 3. Apply QLoRA PEFT Adapters (r=16, alpha=32)
     model = apply_qlora(
         model=model,
         r=config['qlora']['r'],
@@ -58,7 +58,7 @@ def main():
     if not os.path.exists(train_file):
         raise FileNotFoundError(f"Training dataset '{train_file}' not found. Please run Phase 1 first.")
 
-    print(f"Loading datasets from '{train_file}' and '{test_file}'...")
+    print(f"Loading dataset splits from '{train_file}' and '{test_file}'...")
     train_dataset = Dataset.from_json(train_file)
     test_dataset = Dataset.from_json(test_file)
     print(f"Loaded Train Samples: {len(train_dataset)}, Test Samples: {len(test_dataset)}")
@@ -78,27 +78,30 @@ def main():
     vram_callback = VRAMLoggingCallback()
 
     # 6. Initialize SFTTrainer
-    print("Initializing SFTTrainer...")
+    print("Initializing SFTTrainer with fast Unsloth integration...")
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
         train_dataset=train_dataset,
         eval_dataset=test_dataset,
+        dataset_text_field="text",
+        max_seq_length=config['model']['max_seq_length'],
         args=training_args,
         callbacks=[vram_callback],
     )
 
-    # 7. Start Training
-    print("Starting QLoRA Fine-Tuning...")
+    # 7. Execute Fine-Tuning
+    print("\n🚀 Starting QLoRA Fine-Tuning (3 Epochs)...")
     train_result = trainer.train()
 
-    # 8. Log Training Metrics & Save Model
-    print("Training finished! Saving LoRA adapter weights...")
-    trainer.save_model(output_model_dir)
+    # 8. Save Trained LoRA Adapter Weights
+    print("\n✅ Training finished successfully! Saving LoRA adapter weights...")
+    os.makedirs(output_model_dir, exist_ok=True)
+    model.save_pretrained(output_model_dir)
     tokenizer.save_pretrained(output_model_dir)
-    print(f"LoRA adapters successfully saved to '{output_model_dir}'!")
+    print(f"Saved LoRA adapters to '{output_model_dir}'.")
 
-    # Save training loss logs and VRAM usage
+    # 9. Save Training Metrics & VRAM Profile
     results_dir = os.path.join(script_dir, config['evaluation']['results_dir'])
     os.makedirs(results_dir, exist_ok=True)
     logs_filepath = os.path.join(results_dir, "training_logs.json")
@@ -116,7 +119,9 @@ def main():
 
     print(f"Saved training log traces to '{logs_filepath}'.")
     print(f"Peak VRAM Allocated: {log_data['peak_vram_gb']} GB")
+    print("==========================================")
     print("=== Phase 3 Completed Successfully ===")
+    print("==========================================")
 
     clear_gpu_memory()
 
