@@ -1,10 +1,14 @@
 import os
 import sys
 
-# Ensure current directory and script directory are in sys.path BEFORE importing from src
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
+# Ensure current working directory, script directory, and Kaggle path are in sys.path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+cwd = os.getcwd()
+kaggle_path = "/kaggle/working/SLMs"
+
+for p in [script_dir, cwd, kaggle_path]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
 
 import yaml
 from src.data_utils import (
@@ -19,7 +23,7 @@ def main():
     print("=== Executing Phase 1: Environment Setup & Dataset Preparation ===")
     
     # Load config
-    config_path = os.path.join(current_dir, "configs", "qlora_config.yaml")
+    config_path = os.path.join(script_dir, "configs", "qlora_config.yaml")
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
     print("Configuration loaded successfully.")
@@ -49,7 +53,7 @@ def main():
     print("...\n")
 
     # Save
-    data_dir = os.path.join(current_dir, "data")
+    data_dir = os.path.join(script_dir, "data")
     save_splits(train_ds, test_ds, output_dir=data_dir)
     print("=== Phase 1 Completed Successfully ===")
 
