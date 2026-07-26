@@ -29,7 +29,7 @@ model:
 qlora:
   r: 16
   lora_alpha: 32
-  lora_dropout: 0.05
+  lora_dropout: 0
   bias: "none"
   target_modules:
     - "q_proj"

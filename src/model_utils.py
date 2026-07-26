@@ -75,7 +75,7 @@ def apply_qlora(
     model: Any,
     r: int = 16,
     lora_alpha: int = 32,
-    lora_dropout: float = 0.05,
+    lora_dropout: float = 0,
     target_modules: Optional[list] = None
 ) -> Any:
     """
