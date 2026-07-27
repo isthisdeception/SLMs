@@ -36,7 +36,7 @@ SLMs/
 2. **Open Kaggle**: Create a new Notebook on Kaggle and select **GPU T4 x2** or **P100**.
 3. **Clone Repository**: In the first cell of your Kaggle notebook, clone your repo:
    ```bash
-   !git clone https://github.com/YOUR_USERNAME/SLMs.git
+   !git clone https://github.com/isthisdeception/SLMs.git
    %cd SLMs
    ```
 4. **Run Notebooks**: Open and execute `notebooks/01_data_preparation.ipynb` to verify Phase 1 dataset setup.
